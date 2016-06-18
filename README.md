@@ -12,8 +12,8 @@ CONTENTS OF THIS FILE
 
 FORK UPDATES
 ===============
-        - Added missing constants and updated data types for compilation to succeed
-        - Integrated with WiringPi for I2C communication. Support file now works for Raspberry PI B+
+	- Added missing constants and updated data types for compilation to succeed
+	- Integrated with WiringPi for I2C communication. Support file now works for Raspberry PI B+
 	- Compile with: gcc -o bmp280 -lwiringPi bmp280_support.c bmp280.c 
 
 
