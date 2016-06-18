@@ -468,6 +468,10 @@ BMP280_BUS_RD_PARAM_TYPE to function calls used inside the API
 #define	BMP280_INIT_VALUE					(0)
 #define	BMP280_INVALID_DATA					(0)
 
+#define BMP280_ZERO_U8X 			0
+#define BMP280_ONE_U8X                       	1
+#define BMP280_TWO_U8X                          2
+
 /************************************************/
 /**\name	ERROR CODES      */
 /************************************************/
@@ -681,7 +685,7 @@ FOR PRESSURE AND TEMPERATURE DATA REGISTERS */
 	s8 (*bus_read)(u8, u8,\
 			u8 *, u8)
 
-#define BMP280_MDELAY_DATA_TYPE u16
+#define BMP280_MDELAY_DATA_TYPE u32
 /****************************************************/
 /**\name	DEFINITIONS FOR ARRAY SIZE OF DATA   */
 /***************************************************/

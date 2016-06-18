@@ -53,6 +53,13 @@
 /* Includes*/
 /*---------------------------------------------------------------------------*/
 #include "bmp280.h"
+#include "stdio.h"
+#include <wiringPiI2C.h>
+#include <time.h>
+
+#ifndef BMP280_API
+#define BMP280_API 
+#endif
 
 /*----------------------------------------------------------------------------*
 *  The following functions are used for reading and writing of
@@ -92,6 +99,8 @@ s8 BMP280_SPI_bus_write(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt);
  *	\param reg_data : This data read from the sensor, which is hold in an array
  *	\param cnt : The no of byte of data to be read */
 s8 BMP280_SPI_bus_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt);
+
+
 /*
  * \Brief: SPI/I2C init routine
 */
@@ -103,11 +112,15 @@ s8 SPI_routine(void);
  *	\param : delay in ms
 */
 void BMP280_delay_msek(u32 msek);
+
+
+
 /* This function is an example for reading sensor data
  *	\param: None
  *	\return: communication result
  */
 s32 bmp280_data_readout_template(void);
+
 /*----------------------------------------------------------------------------*
  *  struct bmp280_t parameters can be accessed by using bmp280
  *	bmp280_t having the following parameters
@@ -118,6 +131,11 @@ s32 bmp280_data_readout_template(void);
  *	Chip id of the sensor: chip_id
  *---------------------------------------------------------------------------*/
 struct bmp280_t bmp280;
+
+
+s32 wpi_fd;
+
+
 /* This function is an example for reading sensor data
  *	\param: None
  *	\return: communication result
@@ -137,13 +155,22 @@ s32 bmp280_data_readout_template(void)
 	s32 v_actual_press_data_s32 = BMP280_INIT_VALUE;
 	/* result of communication results*/
 	s32 com_rslt = ERROR;
-/*********************** START INITIALIZATION ************************/
+
+  /*********************** START INITIALIZATION ************************/
   /*	Based on the user need configure I2C or SPI interface.
    *	It is example code to explain how to use the bma2x2 API*/
-   #ifdef BMP280
+
+    #ifdef BMP280_API
 	I2C_routine();
 	/*SPI_routine(); */
-	#endif
+    #endif
+
+    /*-------------------------------------------------------------------*
+    * Setup WiringPi 
+    *-------------------------------------------------------------------*/
+    wpi_fd = wiringPiI2CSetup (bmp280.dev_addr) ;
+   
+
 /*--------------------------------------------------------------------------*
  *  This function used to assign the value/reference of
  *	the following parameters
@@ -153,12 +180,16 @@ s32 bmp280_data_readout_template(void)
  *	Chip id
 *-------------------------------------------------------------------------*/
 	com_rslt = bmp280_init(&bmp280);
-
 	/*	For initialization it is required to set the mode of
 	 *	the sensor as "NORMAL"
 	 *	data acquisition/read/write is possible in this mode
 	 *	by using the below API able to set the power mode as NORMAL*/
 	/* Set the power mode as NORMAL*/
+
+	#ifdef DEBUG
+	printf ("Set NORMAL MODE\n");
+	#endif
+
 	com_rslt += bmp280_set_power_mode(BMP280_NORMAL_MODE);
 	/*	For reading the pressure and temperature data it is required to
 	 *	set the work mode
@@ -173,7 +204,12 @@ s32 bmp280_data_readout_template(void)
 	 *	ultra high resolution	x16			x2
 	 */
 	/* The oversampling settings are set by using the following API*/
+
+	#ifdef DEBUG
+	printf("Set ULTRA LOW POWER MODE\n");
+	#endif
 	com_rslt += bmp280_set_work_mode(BMP280_ULTRA_LOW_POWER_MODE);
+
 /*------------------------------------------------------------------------*
 ************************* START GET and SET FUNCTIONS DATA ****************
 *---------------------------------------------------------------------------*/
@@ -194,6 +230,11 @@ s32 bmp280_data_readout_template(void)
 *------------------------------------------------------------------*/
 
 /************************* END INITIALIZATION *************************/
+
+	/*
+	 * Delay for 50ms to allow for some measurements in normal mode
+	 */
+	bmp280.delay_msec(50);
 
 /*------------------------------------------------------------------*
 ************ START READ UNCOMPENSATED PRESSURE AND TEMPERATURE********
@@ -231,6 +272,9 @@ s32 bmp280_data_readout_template(void)
 *-------------------------------------------------------------------------*/
 
 
+printf("CURRENT TEMP: %f ºC\n", (float)v_actual_temp_s32/100);
+printf("CURRENT AIR PRESSURE: %f hPa\n", (float)v_actual_press_u32/100);
+
 /************************* START DE-INITIALIZATION ***********************/
 
 	/*	For de-initialization it is required to set the mode of
@@ -259,6 +303,7 @@ s8 I2C_routine(void) {
  *	Delay function pointer: delay_msec
  *	I2C address: dev_addr
  *--------------------------------------------------------------------------*/
+
 	bmp280.bus_write = BMP280_I2C_bus_write;
 	bmp280.bus_read = BMP280_I2C_bus_read;
 	bmp280.dev_addr = BMP280_I2C_ADDRESS2;
@@ -310,11 +355,15 @@ s8 SPI_routine(void) {
 s8  BMP280_I2C_bus_write(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
 {
 	s32 iError = BMP280_INIT_VALUE;
-	u8 array[I2C_BUFFER_LEN];
+	//u8 array[I2C_BUFFER_LEN];
 	u8 stringpos = BMP280_INIT_VALUE;
-	array[BMP280_INIT_VALUE] = reg_addr;
+	//array[BMP280_INIT_VALUE] = reg_addr;
 	for (stringpos = BMP280_INIT_VALUE; stringpos < cnt; stringpos++) {
-		array[stringpos + BMP280_ONE_U8X] = *(reg_data + stringpos);
+	//	array[stringpos + BMP280_ONE_U8X] = *(reg_data + stringpos);
+		iError = wiringPiI2CWriteReg8 (wpi_fd, reg_addr, *(reg_data + stringpos)) ;
+		#ifdef DEBUG
+		printf("Wrote 0x%x to reg 0x%x\n", *(reg_data + stringpos), reg_addr);
+		#endif
 	}
 	/*
 	* Please take the below function as your reference for
@@ -357,9 +406,16 @@ s8  BMP280_I2C_bus_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
      * and FAILURE defined as -1
 	 */
 	for (stringpos = BMP280_INIT_VALUE; stringpos < cnt; stringpos++) {
-		*(reg_data + stringpos) = array[stringpos];
+		//*(reg_data + stringpos) = array[stringpos];
+		iError = wiringPiI2CReadReg8 (wpi_fd, reg_addr+stringpos) ;
+		*(reg_data + stringpos) = iError;
+		if (iError < 0)
+			return ERROR;
+		#ifdef DEBUG
+		printf("Read from 0x%x value 0x%x\n", reg_addr+stringpos, iError); 
+		#endif
 	}
-	return (s8)iError;
+	return (s8)iError<0?-1:0;
 }
 
 /*	\Brief: The function is used as SPI bus read
@@ -438,5 +494,21 @@ s8  BMP280_SPI_bus_write(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
 void  BMP280_delay_msek(u32 msek)
 {
 	/*Here you can write your own delay routine*/
+	struct timespec tim, tim2;
+   	tim.tv_sec = 0;
+   	tim.tv_nsec = msek*1000000;
+
+printf("DELAYING");
+	if(nanosleep(&tim , &tim2) < 0 )   
+   	{
+      		printf("Failed to sleep\n");
+   	}
 }
 #endif
+
+
+int main()
+{
+  bmp280_data_readout_template();
+}
+
