@@ -498,7 +498,6 @@ void  BMP280_delay_msek(u32 msek)
    	tim.tv_sec = 0;
    	tim.tv_nsec = msek*1000000;
 
-printf("DELAYING");
 	if(nanosleep(&tim , &tim2) < 0 )   
    	{
       		printf("Failed to sleep\n");
